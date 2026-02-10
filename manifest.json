@@ -1,0 +1,21 @@
+{
+  "name": "הספרייה היהודית - מעקב לימוד",
+  "short_name": "ספרייה",
+  "description": "מעקב לימוד אישי בתנ\"ך, משנה, גמרא והלכה",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1a365d",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
