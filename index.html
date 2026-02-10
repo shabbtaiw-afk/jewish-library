@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הספרייה היהודית | מעקב לימוד</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a365d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&family=Heebo:wght@300;500;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #1a365d; --accent: #d4af37; --success: #2d6a4f; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: 'Assistant', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 500px; }
+        header { text-align: center; margin-bottom: 20px; padding-top: 10px; }
+        h1 { font-family: 'Heebo'; font-weight: 800; color: var(--primary); margin: 0; font-size: 26px; }
+        
+        .card { background: white; padding: 20px; border-radius: 28px; box-shadow: 0 10px 25px rgba(26, 54, 93, 0.05); margin-bottom: 15px; border: 1px solid #edf2f7; }
+        
+        /* Library Header */
+        .lib-header { background: linear-gradient(135deg, var(--primary), #2c5282); color: white; padding: 20px; border-radius: 24px; text-align: center; margin-bottom: 15px; }
+        
+        .progress-bar-container { height: 12px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 15px 0; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.8s ease; }
+
+        select { width: 100%; padding: 14px; border-radius: 16px; border: 2px solid #e2e8f0; margin-bottom: 10px; font-family: inherit; font-weight: 700; font-size: 16px; appearance: none; background: #fff url('data:image/svg+xml;charset=US-ASCII,<svg%20xmlns="http://www.w3.org/2000/svg"%20width="24"%20height="24"%20viewBox="0%200%2024%2024" fill="none" stroke="%231a365d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6%209%2012%2015%2018%209"></polyline></svg>') no-repeat left 15px center; }
+        
+        .checklist { max-height: 400px; overflow-y: auto; padding-left: 10px; }
+        .chapter-item { display: flex; align-items: center; padding: 14px; border-radius: 15px; margin-bottom: 6px; background: #fdfdfd; border: 1px solid #f1f5f9; transition: all 0.2s; }
+        .chapter-item.completed { background: #f0fdf4; border-color: #bcf0da; }
+        
+        input[type="checkbox"] { width: 24px; height: 24px; margin-left: 15px; accent-color: var(--success); cursor: pointer; }
+        .chapter-label { font-size: 18px; font-weight: 600; color: var(--primary); }
+
+        .btn-settings { background: none; border: none; color: #a0aec0; cursor: pointer; font-size: 13px; text-decoration: underline; margin-top: 20px; }
+        .settings-panel { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>הספרייה היהודית</h1>
+    </header>
+
+    <div class="lib-header">
+        <label style="font-size: 13px; opacity: 0.8;">תחום לימוד נבחר:</label>
+        <select id="mainLibrarySelect" onchange="changeLibrary(this.value)" style="background-color: white; border: none; margin-top: 8px;"></select>
+        
+        <div class="progress-bar-container"><div class="progress-bar-fill" id="progressBar"></div></div>
+        <div id="progressText" style="font-size: 14px; font-weight: 700;">0/0 פרקים הושלמו</div>
+    </div>
+
+    <div class="card" style="background: #edf2f7; border: none;">
+        <select id="volumeSelect" onchange="updateUnits()"></select>
+        <select id="unitSelect" onchange="render()"></select>
+    </div>
+
+    <div class="card">
+        <b id="listTitle" style="color: var(--primary); font-size: 18px; display: block; margin-bottom: 12px;">רשימת למידה</b>
+        <div id="chapterList" class="checklist"></div>
+    </div>
+
+    <button class="btn-settings" onclick="toggleSettings()">הגדרות וגיבוי נתונים</button>
+    
+    <div id="settings" class="card settings-panel">
+        <b style="font-size: 14px;">התראות וניהול</b>
+        <div style="margin-top: 10px;">
+            <label style="font-size: 11px; display: block;">תזכורת יומית:</label>
+            <input type="time" id="reminderTime" onchange="saveReminder(this.value)" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc;">
+            <button onclick="Notification.requestPermission()" style="width: 100%; margin-top: 10px; padding: 10px; border-radius: 10px; background: var(--primary); color: white; border: none; font-weight: 700;">🔔 הפעל התראות</button>
+        </div>
+        <hr style="margin: 20px 0; opacity: 0.1;">
+        <button onclick="exportData()" style="width: 100%; padding: 10px; border-radius: 10px; background: #64748b; color: white; border: none; font-weight: 700;">💾 שמור גיבוי</button>
+    </div>
+</div>
+
+<script>
+    const library = {
+        "Tanakh": {
+            name: "תנ\"ך",
+            data: [
+                { b: "תורה", h: "בראשית", c: 50 }, { b: "תורה", h: "שמות", c: 40 }, { b: "תורה", h: "ויקרא", c: 27 }, { b: "תורה", h: "במדבר", c: 36 }, { b: "תורה", h: "דברים", c: 34 },
+                { b: "נביאים", h: "יהושע", c: 24 }, { b: "נביאים", h: "שופטים", c: 21 }, { b: "נביאים", h: "שמואל א", c: 31 }, { b: "נביאים", h: "שמואל ב", c: 24 }, { b: "נביאים", h: "מלכים א", c: 22 }, { b: "נביאים", h: "מלכים ב", c: 25 }, { b: "נביאים", h: "ישעיהו", c: 66 }, { b: "נביאים", h: "ירמיהו", c: 52 }, { b: "נביאים", h: "יחזקאל", c: 48 },
+                { b: "תרי עשר", h: "הושע", c: 14 }, { b: "תרי עשר", h: "יואל", c: 4 }, { b: "תרי עשר", h: "עמוס", c: 9 }, { b: "תרי עשר", h: "עובדיה", c: 1 }, { b: "תרי עשר", h: "יונה", c: 4 }, { b: "תרי עשר", h: "מיכה", c: 7 }, { b: "תרי עשר", h: "נחום", c: 3 }, { b: "תרי עשר", h: "חבקוק", c: 3 }, { b: "תרי עשר", h: "צפניה", c: 3 }, { b: "תרי עשר", h: "חגי", c: 2 }, { b: "תרי עשר", h: "זכריה", c: 14 }, { b: "תרי עשר", h: "מלאכי", c: 3 },
+                { b: "כתובים", h: "תהילים", c: 150 }, { b: "כתובים", h: "משלי", c: 31 }, { b: "כתובים", h: "איוב", c: 42 }, { b: "כתובים", h: "מגילות", c: 34 }, { b: "כתובים", h: "דניאל", c: 12 }, { b: "כתובים", h: "עזרא ונחמיה", c: 23 }, { b: "כתובים", h: "דברי הימים", c: 65 }
+            ]
+        },
+        "Bavli": {
+            name: "תלמוד בבלי",
+            data: [
+                { b: "מועד", h: "ברכות", c: 63 }, { b: "מועד", h: "שבת", c: 156 }, { b: "מועד", h: "עירובין", c: 104 }, { b: "מועד", h: "פסחים", c: 120 }, { b: "מועד", h: "יומא", c: 87 }, { b: "מועד", h: "סוכה", c: 55 }, { b: "מועד", h: "ביצה", c: 39 }, { b: "מועד", h: "ראש השנה", c: 34 }, { b: "מועד", h: "תענית", c: 30 }, { b: "מועד", h: "מגילה", c: 31 }, { b: "מועד", h: "מועד קטן", c: 27 }, { b: "מועד", h: "חגיגה", c: 26 },
+                { b: "נשים", h: "יבמות", c: 121 }, { b: "נשים", h: "כתובות", c: 111 }, { b: "נשים", h: "נדרים", c: 90 }, { b: "נשים", h: "נזיר", c: 65 }, { b: "נשים", h: "סוטה", c: 48 }, { b: "נשים", h: "גיטין", c: 89 }, { b: "נשים", h: "קידושין", c: 81 },
+                { b: "נזיקין", h: "בבא קמא", c: 118 }, { b: "נזיקין", h: "בבא מציעא", c: 118 }, { b: "נזיקין", h: "בבא בתרא", c: 175 }, { b: "נזיקין", h: "סנהדרין", c: 112 }, { b: "נזיקין", h: "מכות", c: 23 }, { b: "נזיקין", h: "שבועות", c: 48 }, { b: "נזיקין", h: "עבודה זרה", c: 75 }, { b: "נזיקין", h: "הוריות", c: 13 },
+                { b: "קדשים", h: "זבחים", c: 119 }, { b: "קדשים", h: "מנחות", c: 109 }, { b: "קדשים", h: "חולין", c: 141 }, { b: "קדשים", h: "בכורות", c: 60 }, { b: "קדשים", h: "ערכין", c: 33 }, { b: "קדשים", h: "תמורה", c: 33 }, { b: "קדשים", h: "כריתות", c: 27 }, { b: "קדשים", h: "מעילה", c: 21 }, { b: "קדשים", h: "נדה", c: 72 }
+            ]
+        },
+        "Yerushalmi": {
+            name: "תלמוד ירושלמי",
+            data: [
+                { b: "זרעים", h: "ברכות", c: 68 }, { b: "זרעים", h: "פאה", c: 37 }, { b: "זרעים", h: "דמאי", c: 34 }, { b: "זרעים", h: "כלאיים", c: 44 }, { b: "זרעים", h: "שביעית", c: 31 }, { b: "זרעים", h: "תרומות", c: 59 }, { b: "זרעים", h: "מעשרות", c: 26 }, { b: "זרעים", h: "מעשר שני", c: 33 }, { b: "זרעים", h: "חלה", c: 28 }, { b: "זרעים", h: "ערלה", c: 20 }, { b: "זרעים", h: "ביכורים", c: 13 },
+                { b: "מועד", h: "שבת", c: 92 }, { b: "מועד", h: "עירובין", c: 65 }, { b: "מועד", h: "פסחים", c: 71 }, { b: "מועד", h: "יומא", c: 42 }, { b: "מועד", h: "שקלים", c: 33 }, { b: "מועד", h: "סוכה", c: 26 }, { b: "מועד", h: "ביצה", c: 22 }, { b: "מועד", h: "ראש השנה", c: 22 }, { b: "מועד", h: "תענית", c: 26 }, { b: "מועד", h: "מגילה", c: 34 }, { b: "מועד", h: "מועד קטן", c: 19 }, { b: "מועד", h: "חגיגה", c: 22 }
+            ]
+        },
+        "Mishnah": {
+            name: "משנה",
+            data: [
+                { b: "זרעים", h: "ברכות", c: 9 }, { b: "זרעים", h: "פאה", c: 8 }, { b: "מועד", h: "שבת", c: 24 }, { b: "מועד", h: "עירובין", c: 10 }, { b: "נשים", h: "יבמות", c: 16 }, { b: "נזיקין", h: "בבא קמא", c: 10 }
+            ]
+        },
+        "Halacha": {
+            name: "הלכה",
+            data: [
+                { b: "שולחן ערוך", h: "אורח חיים", c: 697 }, { b: "שולחן ערוך", h: "יורה דעה", c: 403 }, { b: "שולחן ערוך", h: "אבן העזר", c: 178 }, { b: "שולחן ערוך", h: "חושן משפט", c: 427 },
+                { b: "רמב\"ם", h: "המדע", c: 46 }, { b: "רמב\"ם", h: "אהבה", c: 45 }, { b: "רמב\"ם", h: "זמנים", c: 97 }
+            ]
+        }
+    };
+
+    let currentBook = localStorage.getItem('jewish_lib_book') || "Tanakh";
+    let completed = JSON.parse(localStorage.getItem('jewish_lib_done_' + currentBook)) || [];
+
+    window.onload = () => {
+        const sel = document.getElementById('mainLibrarySelect');
+        for(let k in library) {
+            let o = document.createElement('option'); o.value = k; o.text = library[k].name;
+            if(k === currentBook) o.selected = true;
+            sel.add(o);
+        }
+        updateVolumes();
+        setInterval(checkReminder, 60000);
+    };
+
+    function changeLibrary(key) {
+        currentBook = key;
+        localStorage.setItem('jewish_lib_book', key);
+        completed = JSON.parse(localStorage.getItem('jewish_lib_done_' + key)) || [];
+        updateVolumes();
+    }
+
+    function updateVolumes() {
+        const vSel = document.getElementById('volumeSelect'); vSel.innerHTML = "";
+        const volumes = [...new Set(library[currentBook].data.map(i => i.b))];
+        volumes.forEach(v => {
+            let o = document.createElement('option'); o.value = v; o.text = v;
+            vSel.add(o);
+        });
+        updateUnits();
+    }
+
+    function updateUnits() {
+        const uSel = document.getElementById('unitSelect'); uSel.innerHTML = "";
+        const vol = document.getElementById('volumeSelect').value;
+        library[currentBook].data.filter(i => i.b === vol).forEach(i => {
+            let o = document.createElement('option'); o.value = i.h; o.text = i.h;
+            uSel.add(o);
+        });
+        render();
+    }
+
+    function render() {
+        const bookData = library[currentBook].data;
+        const total = bookData.reduce((s, i) => s + i.c, 0);
+        document.getElementById('progressText').innerText = `${completed.length} / ${total} פרקים הושלמו`;
+        document.getElementById('progressBar').style.width = (completed.length / total * 100) + "%";
+
+        const curVol = document.getElementById('volumeSelect').value;
+        const curUnit = document.getElementById('unitSelect').value;
+        document.getElementById('listTitle').innerText = curUnit;
+
+        let html = ""; let globalIdx = 0;
+        bookData.forEach(item => {
+            if(item.b === curVol && item.h === curUnit) {
+                for(let p=1; p<=item.c; p++) {
+                    const id = globalIdx + p;
+                    const isDone = completed.includes(id);
+                    let label = (currentBook === 'Bavli' || currentBook === 'Yerushalmi') ? 'דף ' + (p+1) : 'פרק ' + p;
+                    if(curVol.includes('שולחן ערוך')) label = 'סימן ' + p;
+                    html += `<div class="chapter-item ${isDone?'completed':''}">
+                        <input type="checkbox" ${isDone?'checked':''} onclick="toggle(${id})">
+                        <span class="chapter-label">${label}</span>
+                    </div>`;
+                }
+            }
+            globalIdx += item.c;
+        });
+        document.getElementById('chapterList').innerHTML = html;
+    }
+
+    function toggle(id) {
+        let idx = completed.indexOf(id);
+        if(idx > -1) completed.splice(idx, 1); else completed.push(id);
+        localStorage.setItem('jewish_lib_done_' + currentBook, JSON.stringify(completed));
+        render();
+    }
+
+    function checkReminder() {
+        const time = localStorage.getItem('jewish_lib_reminder');
+        if(!time) return;
+        const now = new Date();
+        const cur = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+        if(cur === time) new Notification("זמן לימוד יהודי!", { body: "אל תשכח להשלים את ההספק היומי שלך בספרייה." });
+    }
+    function saveReminder(v) { localStorage.setItem('jewish_lib_reminder', v); }
+    function toggleSettings() { let s = document.getElementById('settings').style; s.display = s.display==='block'?'none':'block'; }
+    function exportData() {
+        const b = new Blob([JSON.stringify(completed)], {type:'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `jewish_lib_${currentBook}.json`; a.click();
+    }
+    if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); }); }
+</script>
+</body>
+</html>
